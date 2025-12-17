@@ -67,6 +67,16 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // Fetch chat rooms
+  const hashes = (data || [])
+    .map((r: { partner: { hash: string }[] | null }) => r.partner?.[0]?.hash)
+    .filter(Boolean);
+  const { data: rooms } = await admin
+    .from("chat_rooms")
+    .select("id, partner_hash")
+    .in("partner_hash", hashes);
+  const roomMap = new Map(rooms?.map((r) => [r.partner_hash, r.id]));
+
   const alerts = (data || []).map(
     (row: {
       id: string;
@@ -77,6 +87,7 @@ export async function GET(req: NextRequest) {
     }) => {
       const p = row.partner;
       const hash = p[0]?.hash;
+      const roomId = hash ? roomMap.get(hash) : null;
 
       let extra = {};
       if (isPro) {
@@ -93,6 +104,7 @@ export async function GET(req: NextRequest) {
         status: row.status,
         created_at: row.created_at,
         partner_hint: hash ? hint(String(hash)) : "unknown",
+        room_id: roomId,
         ...extra,
       };
     }

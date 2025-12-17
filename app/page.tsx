@@ -6,10 +6,15 @@ import React, {
   useEffect,
   useMemo,
   useState,
+  useRef,
 } from "react";
 import { useSearchParams } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
-import type { Session, AuthChangeEvent } from "@supabase/supabase-js";
+import type {
+  Session,
+  AuthChangeEvent,
+  SupabaseClient,
+} from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
@@ -21,10 +26,127 @@ type AlertRow = {
   overlap_count?: number;
   intents?: string[];
   last_active?: string;
+  room_id?: string;
 };
 
 function partnerHint(h: string) {
   return `${h.slice(0, 6)}...${h.slice(-4)}`;
+}
+
+interface Message {
+  id: string;
+  room_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+}
+
+function ChatWindow({
+  roomId,
+  onClose,
+  supabase,
+  userId,
+}: {
+  roomId: string;
+  onClose: () => void;
+  supabase: SupabaseClient;
+  userId: string;
+}) {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  useEffect(() => {
+    // Load initial messages
+    const fetchMessages = async () => {
+      const { data } = await supabase
+        .from("chat_messages")
+        .select("*")
+        .eq("room_id", roomId)
+        .order("created_at", { ascending: true });
+      if (data) setMessages(data);
+    };
+    fetchMessages();
+
+    // Subscribe to new messages
+    const channel = supabase
+      .channel(`room:${roomId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "chat_messages",
+          filter: `room_id=eq.${roomId}`,
+        },
+        (payload: { new: Record<string, unknown> }) => {
+          setMessages((prev) => [...prev, payload.new as unknown as Message]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [roomId, supabase]);
+
+  const sendMessage = async () => {
+    if (!newMessage.trim()) return;
+    const { error } = await supabase
+      .from("chat_messages")
+      .insert({ room_id: roomId, content: newMessage, user_id: userId });
+
+    if (!error) {
+      setNewMessage("");
+    } else {
+      console.error(error);
+    }
+  };
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal chat-modal">
+        <div className="modal-header">
+          <h3>Anonymous Chat</h3>
+          <button
+            onClick={onClose}
+            className="secondary"
+            style={{ padding: "6px 12px" }}
+          >
+            Close
+          </button>
+        </div>
+        <div className="messages-list">
+          {messages.map((m) => (
+            <div
+              key={m.id}
+              className={`message ${m.user_id === userId ? "mine" : "theirs"}`}
+            >
+              {m.content}
+            </div>
+          ))}
+          <div ref={messagesEndRef} />
+        </div>
+        <div className="chat-input">
+          <input
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+            placeholder="Type a message..."
+          />
+          <button onClick={sendMessage}>Send</button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function AppInner() {
@@ -46,6 +168,7 @@ function AppInner() {
   const [otpCode, setOtpCode] = useState("");
   const [showOtpInput, setShowOtpInput] = useState(false);
   const [isPro, setIsPro] = useState(false);
+  const [activeChatRoom, setActiveChatRoom] = useState<string | null>(null);
 
   const [globalStats, setGlobalStats] = useState<{
     total_overlaps: number;
@@ -534,12 +657,28 @@ function AppInner() {
                     </div>
 
                     <div
-                      className={`badge ${
-                        a.status === "new" ? "badge-new" : "badge-read"
-                      }`}
-                      style={{ marginTop: 6 }}
+                      style={{
+                        marginTop: 6,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                      }}
                     >
-                      {a.status === "new" ? "New" : "Read"}
+                      <div
+                        className={`badge ${
+                          a.status === "new" ? "badge-new" : "badge-read"
+                        }`}
+                      >
+                        {a.status === "new" ? "New" : "Read"}
+                      </div>
+                      {a.room_id && (
+                        <button
+                          onClick={() => setActiveChatRoom(a.room_id!)}
+                          style={{ padding: "4px 10px", fontSize: "0.8em" }}
+                        >
+                          💬 Chat
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -550,6 +689,14 @@ function AppInner() {
             )}
           </section>
         </>
+      )}
+      {activeChatRoom && session && (
+        <ChatWindow
+          roomId={activeChatRoom}
+          onClose={() => setActiveChatRoom(null)}
+          supabase={supabase}
+          userId={session.user.id}
+        />
       )}
     </div>
   );

@@ -85,6 +85,17 @@ export async function POST(req: NextRequest) {
           .from("alerts")
           .upsert(alerts, { onConflict: "user_id,partner_id" });
         if (alertError) console.error(alertError);
+
+        // Create Chat Room if not exists
+        const { data: existingRoom } = await admin
+          .from("chat_rooms")
+          .select("id")
+          .eq("partner_hash", hash)
+          .maybeSingle();
+
+        if (!existingRoom) {
+          await admin.from("chat_rooms").insert({ partner_hash: hash });
+        }
       } else if (linkedError) {
         console.error(linkedError);
       }
