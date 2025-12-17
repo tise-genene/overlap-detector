@@ -18,6 +18,9 @@ type AlertRow = {
   status: string;
   created_at: string;
   partner_hint: string;
+  overlap_count?: number;
+  intents?: string[];
+  last_active?: string;
 };
 
 function partnerHint(h: string) {
@@ -42,6 +45,19 @@ function AppInner() {
   const [sendingLink, setSendingLink] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [showOtpInput, setShowOtpInput] = useState(false);
+  const [isPro, setIsPro] = useState(false);
+
+  const [globalStats, setGlobalStats] = useState<{
+    total_overlaps: number;
+    total_declarations: number;
+  } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/stats")
+      .then((res) => res.json())
+      .then((data) => setGlobalStats(data))
+      .catch(console.error);
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -205,6 +221,7 @@ function AppInner() {
       if (!res.ok) throw new Error("alerts");
       const json = await res.json();
       setAlerts(json.alerts || []);
+      setIsPro(!!json.is_pro);
     } catch (err) {
       console.error(err);
       setAlerts([]);
@@ -226,6 +243,21 @@ function AppInner() {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
+      loadAlerts();
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async function upgradeAccount() {
+    try {
+      const token = await getToken();
+      const res = await fetch("/api/upgrade", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      setIsPro(json.is_pro);
       loadAlerts();
     } catch (err) {
       console.error(err);
@@ -254,6 +286,27 @@ function AppInner() {
             Declare your partner; if they show up elsewhere, you get a generic
             alert.
           </div>
+          {globalStats && (
+            <div
+              className="stats-bar"
+              style={{
+                marginTop: 10,
+                display: "flex",
+                gap: 15,
+                fontSize: "0.9em",
+              }}
+            >
+              <span
+                className="pill"
+                style={{ background: "#ff4444", color: "white" }}
+              >
+                🔥 {globalStats.total_overlaps} Overlaps Detected
+              </span>
+              <span className="pill">
+                📊 {globalStats.total_declarations} Declarations
+              </span>
+            </div>
+          )}
         </div>
         <div className="actions">
           {isAuthed ? (
@@ -406,6 +459,80 @@ function AppInner() {
                     <div className="muted">
                       {new Date(a.created_at).toLocaleString()}
                     </div>
+
+                    <div
+                      style={{
+                        marginTop: 10,
+                        padding: 10,
+                        background: "#f5f5f5",
+                        borderRadius: 6,
+                      }}
+                    >
+                      {isPro ? (
+                        <div className="small">
+                          <div>
+                            <strong>Overlap Count:</strong> {a.overlap_count}{" "}
+                            others
+                          </div>
+                          <div>
+                            <strong>Intents:</strong>{" "}
+                            {a.intents?.join(", ") || "Unknown"}
+                          </div>
+                          <div>
+                            <strong>Last Active:</strong>{" "}
+                            {a.last_active
+                              ? new Date(a.last_active).toLocaleDateString()
+                              : "N/A"}
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ position: "relative" }}>
+                          <div
+                            className="small muted"
+                            style={{
+                              filter: "blur(4px)",
+                              userSelect: "none",
+                              opacity: 0.6,
+                            }}
+                          >
+                            <div>
+                              <strong>Overlap Count:</strong> 3 others
+                            </div>
+                            <div>
+                              <strong>Intents:</strong> Exclusive, Casual
+                            </div>
+                            <div>
+                              <strong>Last Active:</strong> 2 days ago
+                            </div>
+                          </div>
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <button
+                              className="secondary"
+                              onClick={upgradeAccount}
+                              style={{
+                                background: "white",
+                                border: "1px solid #ccc",
+                                fontSize: "0.8em",
+                              }}
+                            >
+                              🔒 Unlock Details
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                     <div
                       className={`badge ${
                         a.status === "new" ? "badge-new" : "badge-read"
