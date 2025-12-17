@@ -28,10 +28,10 @@ export async function GET(req: NextRequest) {
       id: string;
       status: string;
       created_at: string;
-      partner: { hash: string } | null;
+      partner: { hash: string }[];
     }) => {
       const p = row.partner;
-      const hash = Array.isArray(p) ? p[0]?.hash : p?.hash;
+      const hash = p[0]?.hash;
       return {
         id: row.id,
         status: row.status,

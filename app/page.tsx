@@ -1,6 +1,12 @@
 "use client";
 
-import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useSearchParams } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import type { Session, AuthChangeEvent } from "@supabase/supabase-js";
@@ -62,18 +68,12 @@ function AppInner() {
     }
   }, [searchParams, supabase]);
 
-  useEffect(() => {
-    if (!session) return;
-    loadProfile();
-    loadAlerts();
-  }, [session]);
-
-  async function getToken() {
+  const getToken = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
     if (!token) throw new Error("No session");
     return token;
-  }
+  }, [supabase]);
 
   async function sendMagicLink() {
     setAuthMessage("");
@@ -114,7 +114,7 @@ function AppInner() {
     } catch (err) {
       console.error(err);
     }
-  }, []);
+  }, [getToken]);
 
   async function saveProfile() {
     setProfileMessage("");
@@ -181,7 +181,13 @@ function AppInner() {
     } finally {
       setLoadingAlerts(false);
     }
-  }, []);
+  }, [getToken]);
+
+  useEffect(() => {
+    if (!session) return;
+    loadProfile();
+    loadAlerts();
+  }, [session, loadProfile, loadAlerts]);
 
   async function markRead() {
     try {
