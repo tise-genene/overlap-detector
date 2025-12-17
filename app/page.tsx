@@ -40,6 +40,8 @@ function AppInner() {
   const [loadingAlerts, setLoadingAlerts] = useState(false);
   const [loadingDeclare, setLoadingDeclare] = useState(false);
   const [sendingLink, setSendingLink] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [showOtpInput, setShowOtpInput] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -86,17 +88,45 @@ function AppInner() {
       }
       const isEmail = destination.includes("@");
       const redirect = `${window.location.origin}`;
-      const result = isEmail
-        ? await supabase.auth.signInWithOtp({
-            email: destination,
-            options: { emailRedirectTo: redirect },
-          })
-        : await supabase.auth.signInWithOtp({ phone: destination });
-      if (result.error) throw result.error;
-      setAuthMessage("Magic link/OTP sent. Check inbox.");
+
+      if (isEmail) {
+        const { error } = await supabase.auth.signInWithOtp({
+          email: destination,
+          options: { emailRedirectTo: redirect },
+        });
+        if (error) throw error;
+        setAuthMessage("Magic link sent. Check inbox.");
+      } else {
+        const { error } = await supabase.auth.signInWithOtp({
+          phone: destination,
+        });
+        if (error) throw error;
+        setAuthMessage("OTP sent. Enter code below.");
+        setShowOtpInput(true);
+      }
     } catch (err) {
       console.error(err);
       setAuthMessage("Failed to start login.");
+    } finally {
+      setSendingLink(false);
+    }
+  }
+
+  async function verifyOtp() {
+    setAuthMessage("");
+    setSendingLink(true);
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        phone: emailOrPhone,
+        token: otpCode,
+        type: "sms",
+      });
+      if (error) throw error;
+      setSession(data.session);
+      setAuthMessage("Signed in.");
+    } catch (err) {
+      console.error(err);
+      setAuthMessage("Invalid code.");
     } finally {
       setSendingLink(false);
     }
@@ -241,18 +271,45 @@ function AppInner() {
             <h2>Login</h2>
             <span className="pill">Magic link / OTP</span>
           </div>
-          <label htmlFor="contact">Email or phone</label>
-          <input
-            id="contact"
-            value={emailOrPhone}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              setEmailOrPhone(e.target.value)
-            }
-            placeholder="you@example.com or +251..."
-          />
-          <button onClick={sendMagicLink} disabled={sendingLink}>
-            {sendingLink ? "Sending…" : "Send link / OTP"}
-          </button>
+          {!showOtpInput ? (
+            <>
+              <label htmlFor="contact">Email or phone</label>
+              <input
+                id="contact"
+                value={emailOrPhone}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setEmailOrPhone(e.target.value)
+                }
+                placeholder="you@example.com or +251..."
+              />
+              <button onClick={sendMagicLink} disabled={sendingLink}>
+                {sendingLink ? "Sending…" : "Send link / OTP"}
+              </button>
+            </>
+          ) : (
+            <>
+              <label htmlFor="otp">Enter SMS Code</label>
+              <input
+                id="otp"
+                value={otpCode}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setOtpCode(e.target.value)
+                }
+                placeholder="123456"
+              />
+              <div className="actions" style={{ marginTop: 10 }}>
+                <button onClick={verifyOtp} disabled={sendingLink}>
+                  {sendingLink ? "Verifying…" : "Verify Code"}
+                </button>
+                <button
+                  className="secondary"
+                  onClick={() => setShowOtpInput(false)}
+                >
+                  Back
+                </button>
+              </div>
+            </>
+          )}
           <div className="muted" style={{ marginTop: 8 }}>
             {authMessage}
           </div>
