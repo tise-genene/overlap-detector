@@ -180,7 +180,12 @@ function AppInner() {
   const [showOtpInput, setShowOtpInput] = useState(false);
   const [isPro, setIsPro] = useState(false);
   const [activeChatRoom, setActiveChatRoom] = useState<string | null>(null);
+  const activeChatRoomRef = useRef<string | null>(null);
   const [unreadRooms, setUnreadRooms] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    activeChatRoomRef.current = activeChatRoom;
+  }, [activeChatRoom]);
 
   const [globalStats, setGlobalStats] = useState<{
     total_overlaps: number;
@@ -372,8 +377,10 @@ function AppInner() {
   }, [session, loadProfile, loadAlerts]);
 
   // Listen for new messages in any room
+  // Listen for new messages in any room
   useEffect(() => {
     if (!session) return;
+    console.log("Subscribing to global messages...");
     const channel = supabase
       .channel("global_messages")
       .on(
@@ -384,22 +391,30 @@ function AppInner() {
           table: "chat_messages",
         },
         (payload: { new: Record<string, unknown> }) => {
+          console.log("New message received:", payload);
           const msg = payload.new as unknown as Message;
           // If message is not from me, and I'm not currently in that room
           if (
             msg.user_id !== session.user.id &&
-            msg.room_id !== activeChatRoom
+            msg.room_id !== activeChatRoomRef.current
           ) {
-            setUnreadRooms((prev) => new Set(prev).add(msg.room_id));
+            console.log("Marking unread for room:", msg.room_id);
+            setUnreadRooms((prev) => {
+              const next = new Set(prev);
+              next.add(msg.room_id);
+              return next;
+            });
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("Global subscription status:", status);
+      });
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [session, activeChatRoom, supabase]);
+  }, [session, supabase]);
 
   async function markRead() {
     try {
