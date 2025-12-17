@@ -69,7 +69,11 @@ export async function GET(req: NextRequest) {
 
   // Fetch chat rooms
   const hashes = (data || [])
-    .map((r: { partner: { hash: string }[] | null }) => r.partner?.[0]?.hash)
+    .map((r: { partner: { hash: string } | { hash: string }[] | null }) => {
+      const p = r.partner;
+      if (Array.isArray(p)) return p[0]?.hash;
+      return (p as { hash: string })?.hash;
+    })
     .filter(Boolean);
   const { data: rooms } = await admin
     .from("chat_rooms")
@@ -83,10 +87,12 @@ export async function GET(req: NextRequest) {
       status: string;
       created_at: string;
       partner_id: string;
-      partner: { hash: string }[];
+      partner: { hash: string } | { hash: string }[] | null;
     }) => {
       const p = row.partner;
-      const hash = p[0]?.hash;
+      const hash = Array.isArray(p)
+        ? p[0]?.hash
+        : (p as { hash: string })?.hash;
       const roomId = hash ? roomMap.get(hash) : null;
 
       let extra = {};
