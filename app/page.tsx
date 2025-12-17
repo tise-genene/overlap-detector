@@ -88,7 +88,11 @@ function ChatWindow({
           filter: `room_id=eq.${roomId}`,
         },
         (payload: { new: Record<string, unknown> }) => {
-          setMessages((prev) => [...prev, payload.new as unknown as Message]);
+          const newMsg = payload.new as unknown as Message;
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === newMsg.id)) return prev;
+            return [...prev, newMsg];
+          });
         }
       )
       .subscribe();
@@ -100,14 +104,20 @@ function ChatWindow({
 
   const sendMessage = async () => {
     if (!newMessage.trim()) return;
-    const { error } = await supabase
-      .from("chat_messages")
-      .insert({ room_id: roomId, content: newMessage, user_id: userId });
+    const content = newMessage;
+    setNewMessage(""); // Optimistic clear
 
-    if (!error) {
-      setNewMessage("");
+    const { data, error } = await supabase
+      .from("chat_messages")
+      .insert({ room_id: roomId, content, user_id: userId })
+      .select()
+      .single();
+
+    if (data) {
+      setMessages((prev) => [...prev, data as Message]);
     } else {
       console.error(error);
+      setNewMessage(content); // Restore on error
       alert("Failed to send. Check console for details.");
     }
   };
@@ -170,6 +180,7 @@ function AppInner() {
   const [showOtpInput, setShowOtpInput] = useState(false);
   const [isPro, setIsPro] = useState(false);
   const [activeChatRoom, setActiveChatRoom] = useState<string | null>(null);
+  const [unreadRooms, setUnreadRooms] = useState<Set<string>>(new Set());
 
   const [globalStats, setGlobalStats] = useState<{
     total_overlaps: number;
@@ -359,6 +370,36 @@ function AppInner() {
     loadProfile();
     loadAlerts();
   }, [session, loadProfile, loadAlerts]);
+
+  // Listen for new messages in any room
+  useEffect(() => {
+    if (!session) return;
+    const channel = supabase
+      .channel("global_messages")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "chat_messages",
+        },
+        (payload: { new: Record<string, unknown> }) => {
+          const msg = payload.new as unknown as Message;
+          // If message is not from me, and I'm not currently in that room
+          if (
+            msg.user_id !== session.user.id &&
+            msg.room_id !== activeChatRoom
+          ) {
+            setUnreadRooms((prev) => new Set(prev).add(msg.room_id));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session, activeChatRoom, supabase]);
 
   async function markRead() {
     try {
@@ -674,10 +715,35 @@ function AppInner() {
                       </div>
                       {a.room_id && (
                         <button
-                          onClick={() => setActiveChatRoom(a.room_id!)}
-                          style={{ padding: "4px 10px", fontSize: "0.8em" }}
+                          onClick={() => {
+                            setActiveChatRoom(a.room_id!);
+                            setUnreadRooms((prev) => {
+                              const next = new Set(prev);
+                              next.delete(a.room_id!);
+                              return next;
+                            });
+                          }}
+                          style={{
+                            padding: "4px 10px",
+                            fontSize: "0.8em",
+                            position: "relative",
+                          }}
                         >
                           💬 Chat
+                          {unreadRooms.has(a.room_id) && (
+                            <span
+                              style={{
+                                position: "absolute",
+                                top: -5,
+                                right: -5,
+                                width: 10,
+                                height: 10,
+                                background: "red",
+                                borderRadius: "50%",
+                                border: "2px solid white",
+                              }}
+                            />
+                          )}
                         </button>
                       )}
                     </div>
