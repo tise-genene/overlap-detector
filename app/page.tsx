@@ -123,8 +123,8 @@ function ChatWindow({
   };
 
   return (
-    <div className="modal-overlay">
-      <div className="modal chat-modal">
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal chat-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3>Anonymous Chat</h3>
           <button
