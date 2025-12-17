@@ -108,6 +108,7 @@ function ChatWindow({
       setNewMessage("");
     } else {
       console.error(error);
+      alert("Failed to send. Check console for details.");
     }
   };
 
