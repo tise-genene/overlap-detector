@@ -1,0 +1,161 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap");
+
+:root {
+  color-scheme: light;
+  --bg: #f7f7fb;
+  --fg: #0f172a;
+  --muted: #606c88;
+  --card: #ffffff;
+  --border: #e4e7f1;
+  --accent: #4f46e5;
+  --accent-2: #111827;
+  --shadow: 0 10px 40px rgba(15, 23, 42, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(
+      circle at 20% 20%,
+      rgba(79, 70, 229, 0.06),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 80% 10%,
+      rgba(16, 185, 129, 0.05),
+      transparent 30%
+    ),
+    var(--bg);
+  color: var(--fg);
+  font-family: "Space Grotesk", "Segoe UI", system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+}
+
+main {
+  width: min(960px, 94vw);
+  margin: 0 auto;
+  padding: 32px 0 64px;
+}
+
+h1 {
+  font-size: 28px;
+  margin: 0 0 12px;
+}
+section {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 18px 18px 22px;
+  box-shadow: var(--shadow);
+  margin-bottom: 18px;
+}
+
+label {
+  display: block;
+  font-size: 14px;
+  margin: 10px 0 6px;
+  color: var(--muted);
+}
+input,
+select,
+button {
+  font: inherit;
+}
+input,
+select {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+}
+button {
+  padding: 11px 14px;
+  border: none;
+  border-radius: 12px;
+  background: var(--accent);
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #eef2ff;
+  color: #312e81;
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 14px;
+}
+.row {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.row > div {
+  flex: 1;
+  min-width: 260px;
+}
+.card-title {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.alert {
+  border: 1px solid #f4c7c3;
+  background: #fff5f4;
+  padding: 12px;
+  border-radius: 12px;
+  margin: 10px 0;
+}
+.badge {
+  display: inline-flex;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+.badge-new {
+  background: #dcfce7;
+  color: #166534;
+}
+.badge-read {
+  background: #e5e7eb;
+  color: #374151;
+}
+input:focus,
+select:focus {
+  outline: 2px solid rgba(79, 70, 229, 0.2);
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.small {
+  font-size: 13px;
+  color: var(--muted);
+}
