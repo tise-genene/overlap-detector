@@ -1,6 +1,7 @@
-# Relationship Overlap Check
+# partner Overlap Check
 
-Minimal Next.js + Supabase app that lets users declare a partner identifier and get an anonymous alert when the same identifier is declared by 2+ users. Identifiers are normalized and hashed+salted server-side; alerts never reveal who else declared.
+lets users declare their partner and get an anonymous alert when the same identifier is declared by >1+ users. 
+Identifiers are normalized and hashed+salted server-side; alerts never reveal who else declared.
 
 ## Prereqs
 
@@ -28,7 +29,7 @@ Minimal Next.js + Supabase app that lets users declare a partner identifier and 
 ## Notes
 
 - Service-role key is only used server-side in API routes; RLS blocks anon direct access. Partners table has no policies so only the service role can touch it.
-- Overlap logic: if a partner hash appears in 2+ declarations, all linked users get/keep an alert (upsert ensures idempotent). Alerts mark as read via `/api/alerts/read`.
+- Overlap logic: if a partner hash appears in >1+ declarations, all linked users get/keep an alert (upsert ensures idempotent). Alerts mark as read via `/api/alerts/read`.
 - Identifiers are normalized (lowercase, whitespace/hyphen stripped) and hashed with `HASH_SALT` using SHA-256.
 - OTP/magic link flow: Supabase sends the email; when redirected back with `code`, the client exchanges it for a session.
 
